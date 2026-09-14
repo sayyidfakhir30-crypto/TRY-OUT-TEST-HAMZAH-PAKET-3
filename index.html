@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Tambahan Library untuk cetak PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root{
     --paper:#f6f2e9; --paper-line:#e4dcc8; --ink:#2b2a25; --ink-soft:#6b6558;
@@ -44,15 +46,9 @@
   header .pagepos{ font-size:13px; font-weight:600; }
   header .timer{ font-size:14px; font-weight:700; color:var(--accent); font-family:'Inter',monospace; }
   header .timer.low{ color:var(--wrong-border); }
-  #timeup-overlay{
-    display:none; position:fixed; inset:0; background:rgba(43,42,37,0.55); z-index:100;
-    align-items:center; justify-content:center; direction:ltr;
-  }
+  #timeup-overlay{ display:none; position:fixed; inset:0; background:rgba(43,42,37,0.55); z-index:100; align-items:center; justify-content:center; direction:ltr; }
   #timeup-overlay.show{ display:flex; }
-  #timeup-overlay .box{
-    background:var(--card); border-radius:12px; padding:24px 28px; max-width:320px; text-align:center;
-    font-size:14px; line-height:1.6;
-  }
+  #timeup-overlay .box{ background:var(--card); border-radius:12px; padding:24px 28px; max-width:320px; text-align:center; font-size:14px; line-height:1.6; }
   #timeup-overlay .box b{ display:block; font-size:17px; margin-bottom:8px; color:var(--wrong-border); }
   .progress-track{ width:100%; height:5px; background:var(--paper-line); }
   .progress-fill{ height:100%; background:var(--accent); width:0%; transition:width .2s ease; }
@@ -79,13 +75,15 @@
   .q.revealed .opsi div.selected.wrong{ background:var(--wrong-bg); border-color:var(--wrong-border); }
   .huruf{ font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-inline-end:8px; }
 
-  .navbar{ position:sticky; bottom:0; background:var(--paper); border-top:1px solid var(--paper-line); padding:12px 20px; display:flex; direction:ltr; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+  .navbar{ position:sticky; bottom:0; background:var(--paper); border-top:1px solid var(--paper-line); padding:12px 20px; display:flex; direction:ltr; gap:10px; flex-wrap:wrap; justify-content: space-between; }
   .navbar .btn{ width:auto; }
 
-  #result-screen main{ direction:ltr; text-align:center; padding-top:60px; }
+  #result-screen{ padding:40px 20px; }
+  #result-content{ background:var(--card); padding:30px; border-radius:12px; border:1px solid var(--paper-line); max-width:400px; margin:0 auto; direction:ltr; text-align:center; }
   .score-big{ font-size:52px; font-weight:700; color:var(--accent); margin:10px 0; }
-  .score-table{ text-align:left; max-width:320px; margin:20px auto; font-size:14px; }
-  .score-table div{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--paper-line); }
+  .score-table{ text-align:left; margin:20px auto 0; font-size:14px; }
+  .score-table div{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--paper-line); }
+  .action-buttons{ max-width:400px; margin:20px auto; display:flex; flex-direction:column; gap:10px; }
 </style>
 </head>
 <body>
@@ -97,7 +95,7 @@
     <div class="maklumat">
       <b>Maklumat sebelum mengerjakan:</b>
       <ol>
-        <li>Try Out ini terdiri dari <b>150 soal</b>: 50 Fahmul Masmu', 50 Tarakib, 50 Maqru'.</li>
+        <li>Try Out ini terdiri dari <b>150 soal</b>: 50 Istima', 50 Tarakib, 50 Mufrodat.</li>
         <li>Setiap halaman berisi <b>5 soal</b>. Jawab semua soal di halaman tersebut sebelum lanjut.</li>
         <li>Tombol "Lihat Jawaban" aktif setelah kelima soal dijawab, menampilkan jawaban benar (hijau) dan jawaban salah yang dipilih (merah).</li>
         <li>Jawaban tidak dapat diubah lagi setelah ditampilkan kunci jawabannya.</li>
@@ -110,7 +108,7 @@
     <button class="btn" id="get-pw-btn">Dapatkan Password</button>
     <div class="pw-box" id="pw-box">
       Password Anda: <span class="pw" id="pw-display"></span><br>
-      <span style="font-size:11.5px;color:var(--ink-soft);">Simpan email dan password ini untuk login berikutnya.</span>
+      <span style="font-size:11.5px;color:var(--ink-soft);">Gunakan password acak ini untuk masuk.</span>
     </div>
     <div id="pw-login-area" style="display:none;">
       <label for="pw-input">Masukkan Password</label>
@@ -129,9 +127,13 @@
   </header>
   <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
   <main id="quiz-main"></main>
+  
   <div class="navbar">
-    <button class="btn secondary" id="reveal-btn" disabled style="width:auto;">Lihat Jawaban</button>
-    <button class="btn" id="next-btn" disabled style="width:auto;">Halaman Selanjutnya</button>
+    <button class="btn secondary" id="prev-btn" disabled style="width:auto;">Halaman Sebelumnya</button>
+    <div style="display:flex; gap:10px;">
+      <button class="btn secondary" id="reveal-btn" disabled style="width:auto;">Lihat Jawaban</button>
+      <button class="btn" id="next-btn" disabled style="width:auto;">Halaman Selanjutnya</button>
+    </div>
   </div>
 </div>
 
@@ -143,18 +145,24 @@
 </div>
 
 <div class="screen" id="result-screen">
-  <main>
-    <div style="font-size:14px;color:var(--ink-soft);">Try Out 3 Selesai</div>
+  <div id="result-content">
+    <div style="font-size:14px;color:var(--ink-soft);">Hasil Try Out 3 — Tes Hamzah</div>
+    <div style="font-size:15px; font-weight:700; margin-top:8px; word-break: break-all;" id="result-email-label"></div>
     <div class="score-big" id="score-big">0/150</div>
     <div class="score-table" id="score-table"></div>
-    <button class="btn" style="max-width:220px;margin:20px auto;" id="restart-btn">Ulangi Try Out</button>
-  </main>
+  </div>
+  
+  <div class="action-buttons">
+    <button class="btn" id="download-pdf-btn">Unduh Hasil (PDF)</button>
+    <button class="btn secondary" id="send-email-btn">Kirim ke Email Saya</button>
+    <button class="btn secondary" id="restart-btn" style="margin-top:20px;">Ulangi Try Out</button>
+  </div>
 </div>
 
 <script>
 const HURUF = ["A","B","C","D","E","F"];
 const LVL_LABEL = {mudah:"Mudah", sedang:"Sedang", sulit:"Sulit"};
-const SECTION_LABEL = {masmu:"Fahmul Masmu'", tarakib:"Tarakib", maqru:"Maqru'"};
+const SECTION_LABEL = {masmu:"Istima'", tarakib:"Tarakib", maqru:"Mufrodat"};
 
 /* ---------- TARAKIB TO3 (50, kalimat baru) ---------- */
 const TARAKIB = [
@@ -210,7 +218,7 @@ const TARAKIB = [
 {lvl:"sulit", soal:"بَعْدَ أَنْ ...... الْبَاحِثُ تَجْرِبَتَهُ نَشَرَ نَتَائِجَهَا", opts:["يُنْهِيَ","أَنْهَى","يُنْهِي","مُنْهٍ","إِنْهَاء"], correct:1},
 ];
 
-/* ---------- MAQRU' TO3 (50, dari soal asli Q101-150) ---------- */
+/* ---------- MAQRU' TO3 ---------- */
 const MAQRU = [
 {lvl:"mudah", soal:"الصِّنَاعَةُ الَّتِي تَعْتَمِدُ أَسَاسًا عَلَى الْمَهَارَةِ الْيَدَوِيَّةِ", opts:["عَمَل","حِرْفَةٌ","سِيَاسَة","مَعَايِير","عِلْم"], correct:1},
 {lvl:"mudah", soal:"مَا يَتَوَلَّاهُ الْمَرْءُ مِنْ عَمَلٍ إِدَارِيٍّ حُكُومِيٍّ أَوْ نَحْوِهِ", opts:["مَنْصِبٌ","عَمَل","حِرْفَة","مَاء","سَفَر"], correct:0},
@@ -264,72 +272,72 @@ const MAQRU = [
 {lvl:"sulit", soal:"صَوْتُ الْفَرَسِ", opts:["صِيَاح","نُبَاح","صَهِيلٌ","خَرِير","مَاء"], correct:2},
 ];
 
-/* ---------- FAHMUL MASMU' TO3 (10 wacana x 5 = 50) ---------- */
+/* ---------- FAHMUL MASMU' TO3 ---------- */
 const MASMU = [
-{lvl:"mudah", transcript:"أَذْهَبُ مَعَ عَائِلَتِي إِلَى السُّوقِ اللَّيْلِيِّ فِي نِهَايَةِ كُلِّ أُسْبُوعٍ. نَتَنَاوَلُ الطَّعَامَ الشَّعْبِيَّ وَنَشْتَرِي بَعْضَ الْأَلْعَابِ الصَّغِيرَةِ لِأُخْتِي.", questions:[
+{lvl:"mudah", audio:"audio1.mp3", transcript:"أَذْهَبُ مَعَ عَائِلَتِي إِلَى السُّوقِ اللَّيْلِيِّ فِي نِهَايَةِ كُلِّ أُسْبُوعٍ. نَتَنَاوَلُ الطَّعَامَ الشَّعْبِيَّ وَنَشْتَرِي بَعْضَ الْأَلْعَابِ الصَّغِيرَةِ لِأُخْتِي.", questions:[
   {soal:"مَتَى يَذْهَبُ الْمُتَحَدِّثُ إِلَى السُّوقِ اللَّيْلِيِّ؟", opts:["كُلَّ يَوْم","فِي نِهَايَةِ كُلِّ أُسْبُوع","مَرَّةً فِي السَّنَة","فِي الْعُطْلَةِ فَقَط","لَا يَذْهَبُ أَبَدًا"], correct:1},
   {soal:"مَعَ مَنْ يَذْهَبُ؟", opts:["أَصْدِقَائِهِ","عَائِلَتِهِ","جِيرَانِهِ","وَحْدَه","زُمَلَائِهِ"], correct:1},
   {soal:"مَاذَا يَتَنَاوَلُونَ؟", opts:["طَعَامًا شَعْبِيًّا","طَعَامًا غَرْبِيًّا فَقَط","لَا يَأْكُلُونَ","حَلْوَى فَقَط","فَوَاكِه فَقَط"], correct:0},
   {soal:"لِمَنْ يَشْتَرِي الْأَلْعَابَ؟", opts:["لِنَفْسِهِ","لِأُخْتِهِ","لِأَخِيهِ","لِصَدِيقِهِ","لِجَارِهِ"], correct:1},
   {soal:"مَا نَوْعُ السُّوقِ الْمَذْكُورِ؟", opts:["سُوقٌ صَبَاحِيّ","سُوقٌ لَيْلِيّ","سُوقٌ أُسْبُوعِيّ فَقَط","سُوقٌ إِلِكْتُرُونِيّ","لَا يُوجَد سُوق"], correct:1},
 ]},
-{lvl:"mudah", transcript:"أَزُورُ جَدِّي وَجَدَّتِي فِي الْقَرْيَةِ كُلَّ عُطْلَةٍ. جَدِّي يُحَدِّثُنِي عَنْ قِصَصِ الْمَاضِي، وَجَدَّتِي تَصْنَعُ لِيَ الْحَلْوَى التَّقْلِيدِيَّةَ.", questions:[
+{lvl:"mudah", audio:"audio2.mp3", transcript:"أَزُورُ جَدِّي وَجَدَّتِي فِي الْقَرْيَةِ كُلَّ عُطْلَةٍ. جَدِّي يُحَدِّثُنِي عَنْ قِصَصِ الْمَاضِي، وَجَدَّتِي تَصْنَعُ لِيَ الْحَلْوَى التَّقْلِيدِيَّةَ.", questions:[
   {soal:"أَيْنَ يَسْكُنُ جَدُّ الْمُتَحَدِّثِ؟", opts:["فِي الْمَدِينَة","فِي الْقَرْيَة","فِي الْخَارِج","بِجَانِبِ الْمَدْرَسَة","غَيْر مَذْكُور"], correct:1},
   {soal:"مَتَى يَزُورُهُمَا الْمُتَحَدِّثُ؟", opts:["كُلَّ يَوْم","كُلَّ عُطْلَة","مَرَّةً فِي السَّنَة","لَا يَزُورُهُمَا","كُلَّ أُسْبُوعَيْن"], correct:1},
-  {soal:"عَمَّاذَا يُحَدِّثُهُ جَدُّهُ؟", opts:["أَخْبَارِ الْيَوْم","قِصَصِ الْمَاضِي","الرِّيَاضَة","السِّيَاسَة","لَا شَيْء"], correct:1},
+  {soal:"عَمَّاذَا يُحَدِّثُهُ جَدُّهُ؟", opts:["أَخْبَارِ الْيَوْم","قِصَصِ الْمَاضِي","الْرِّيَاضَة","السِّيَاسَة","لَا شَيْء"], correct:1},
   {soal:"مَاذَا تَصْنَعُ الْجَدَّةُ؟", opts:["مَلَابِس","الْحَلْوَى التَّقْلِيدِيَّة","أَثَاثًا","أَلْعَابًا","لَا شَيْء"], correct:1},
   {soal:"مَنْ يَصْنَعُ الْحَلْوَى؟", opts:["الْأُمّ","الْجَدَّة","الْأُخْت","الْجَارَة","الْمُتَحَدِّث نَفْسُهُ"], correct:1},
 ]},
-{lvl:"mudah", transcript:"زُرْتُ مَعَ صَفِّي مَتْحَفًا يَعْرِضُ آثَارًا قَدِيمَةً. رَأَيْنَا أَدَوَاتٍ اسْتَخْدَمَهَا النَّاسُ قَبْلَ مِئَاتِ السِّنِينَ. كَانَتِ الزِّيَارَةُ مُفِيدَةً وَمُمْتِعَةً.", questions:[
+{lvl:"mudah", audio:"audio3.mp3", transcript:"زُرْتُ مَعَ صَفِّي مَتْحَفًا يَعْرِضُ آثَارًا قَدِيمَةً. رَأَيْنَا أَدَوَاتٍ اسْتَخْدَمَهَا النَّاسُ قَبْلَ مِئَاتِ السِّنِينَ. كَانَتِ الزِّيَارَةُ مُفِيدَةً وَمُمْتِعَةً.", questions:[
   {soal:"مَعَ مَنْ زَارَ الْمُتَحَدِّثُ الْمَتْحَفَ؟", opts:["عَائِلَتِهِ","صَفِّهِ","أَصْدِقَائِهِ فَقَط","وَحْدَه","جِيرَانِهِ"], correct:1},
   {soal:"مَاذَا يَعْرِضُ الْمَتْحَفُ؟", opts:["أَعْمَالًا فَنِّيَّةً حَدِيثَة","آثَارًا قَدِيمَة","أَجْهِزَةً إِلِكْتُرُونِيَّة","مَلَابِسَ فَقَط","لَا شَيْء"], correct:1},
   {soal:"مَاذَا رَأَوْا فِي الْمَتْحَفِ؟", opts:["أَفْلَامًا","أَدَوَاتٍ قَدِيمَة","حَيَوَانَات","صُوَرًا فَقَط","لَا شَيْء"], correct:1},
   {soal:"مُنْذُ مَتَى اسْتُخْدِمَتْ هَذِهِ الْأَدَوَاتُ؟", opts:["مُنْذُ سَنَة","قَبْلَ مِئَاتِ السِّنِينَ","مُنْذُ شَهْر","حَدِيثًا","غَيْر مَذْكُور"], correct:1},
   {soal:"كَيْفَ كَانَتِ الزِّيَارَةُ؟", opts:["مُمِلَّة","مُفِيدَةً وَمُمْتِعَة","قَصِيرَةً جِدًّا","مُتْعِبَةً فَقَط","لَا رَأْيَ"], correct:1},
 ]},
-{lvl:"mudah", transcript:"تُحَاوِلُ عَائِلَتِي تَوْفِيرَ الْكَهْرَبَاءِ بِإِطْفَاءِ الْأَنْوَارِ غَيْرِ الْمُسْتَخْدَمَةِ وَاسْتِخْدَامِ الْمِرْوَحَةِ بَدَلَ الْمُكَيِّفِ فِي الطَّقْسِ الْمُعْتَدِلِ.", questions:[
+{lvl:"mudah", audio:"audio4.mp3", transcript:"تُحَاوِلُ عَائِلَتِي تَوْفِيرَ الْكَهْرَبَاءِ بِإِطْفَاءِ الْأَنْوَارِ غَيْرِ الْمُسْتَخْدَمَةِ وَاسْتِخْدَامِ الْمِرْوَحَةِ بَدَلَ الْمُكَيِّفِ فِي الطَّقْسِ الْمُعْتَدِلِ.", questions:[
   {soal:"مَاذَا تُحَاوِلُ الْعَائِلَةُ تَوْفِيرَهُ؟", opts:["الْمَاء","الْكَهْرَبَاء","الْوَقْت","الطَّعَام","الْمَال فَقَط"], correct:1},
   {soal:"كَيْفَ يُوَفِّرُونَ الْكَهْرَبَاءَ؟", opts:["بِعَدَمِ اسْتِخْدَامِ الْأَجْهِزَة","بِإِطْفَاءِ الْأَنْوَارِ غَيْرِ الْمُسْتَخْدَمَة","بِقَطْعِ الْكَهْرَبَاءِ كُلِّيًّا","بِبَيْعِ الْأَجْهِزَة","لَا يُوَفِّرُونَ"], correct:1},
   {soal:"مَاذَا يَسْتَخْدِمُونَ بَدَلَ الْمُكَيِّفِ؟", opts:["السَّخَّان","الْمِرْوَحَة","لَا شَيْء","مُكَيِّفًا آخَر","النَّافِذَة فَقَط"], correct:1},
   {soal:"مَتَى يَسْتَخْدِمُونَ الْمِرْوَحَةَ؟", opts:["فِي الشِّتَاءِ فَقَط","فِي الطَّقْسِ الْمُعْتَدِل","طَوَالَ السَّنَة","لَيْلًا فَقَط","لَا يَسْتَخْدِمُونَهَا"], correct:1},
   {soal:"مَا مَوْضُوعُ النَّصِّ؟", opts:["تَوْفِيرُ الْمَاء","تَوْفِيرُ الْكَهْرَبَاءِ فِي الْبَيْت","السَّفَر","الطَّبْخ","التَّسَوُّق"], correct:1},
 ]},
-{lvl:"sedang", transcript:"اخْتَرَعَ عَالِمٌ مِصْرِيٌّ جِهَازًا يُسَاعِدُ الْمُزَارِعِينَ عَلَى تَحْدِيدِ كَمِّيَّةِ الْمَاءِ الَّتِي تَحْتَاجُهَا التُّرْبَةُ، مِمَّا يُقَلِّلُ مِنْ هَدْرِ الْمِيَاهِ فِي الزِّرَاعَةِ.", questions:[
+{lvl:"sedang", audio:"audio5.mp3", transcript:"اخْتَرَعَ عَالِمٌ مِصْرِيٌّ جِهَازًا يُسَاعِدُ الْمُزَارِعِينَ عَلَى تَحْدِيدِ كَمِّيَّةِ الْمَاءِ الَّتِي تَحْتَاجُهَا التُّرْبَةُ، مِمَّا يُقَلِّلُ مِنْ هَدْرِ الْمِيَاهِ فِي الزِّرَاعَةِ.", questions:[
   {soal:"مَنِ اخْتَرَعَ الْجِهَازَ؟", opts:["عَالِمٌ أَمْرِيكِيّ","عَالِمٌ مِصْرِيّ","طَالِبٌ جَامِعِيّ","مُهَنْدِسٌ سُعُودِيّ","غَيْر مَذْكُور"], correct:1},
   {soal:"مَاذَا يُسَاعِدُ الْجِهَازُ الْمُزَارِعِينَ عَلَى مَعْرِفَتِهِ؟", opts:["نَوْعِ التُّرْبَة","كَمِّيَّةِ الْمَاءِ الَّتِي تَحْتَاجُهَا التُّرْبَة","سِعْرِ الْمَحْصُول","حَجْمِ الْأَرْض","نَوْعِ الْبُذُور"], correct:1},
   {soal:"مَا فَائِدَةُ هَذَا الْجِهَازِ؟", opts:["زِيَادَةُ الْإِنْتَاجِ فَقَط","تَقْلِيلُ هَدْرِ الْمِيَاه","تَقْلِيلُ عَدَدِ الْعُمَّال","زِيَادَةُ الْأَسْعَار","لَا فَائِدَةَ"], correct:1},
   {soal:"فِي أَيِّ مَجَالٍ يُسْتَخْدَمُ الْجِهَازُ؟", opts:["الطِّبّ","الزِّرَاعَة","الصِّنَاعَة","التِّجَارَة","التَّعْلِيم"], correct:1},
   {soal:"مَا مَوْضُوعُ النَّصِّ؟", opts:["اخْتِرَاعٌ يُفِيدُ الزِّرَاعَة","تَارِيخُ مِصْر","أَنْوَاعُ التُّرْبَة","مَشَاكِلُ الْمُزَارِعِين","أَسْعَارُ الْمَحَاصِيل"], correct:0},
 ]},
-{lvl:"sedang", transcript:"تُعَدُّ السُّفُنُ مِنْ أَقْدَمِ وَسَائِلِ النَّقْلِ الَّتِي اسْتَخْدَمَهَا الْإِنْسَانُ لِنَقْلِ الْبَضَائِعِ وَالرُّكَّابِ عَبْرَ الْبِحَارِ وَالْمُحِيطَاتِ. وَقَدْ تَطَوَّرَتْ صِنَاعَةُ السُّفُنِ كَثِيرًا فِي الْعُصُورِ الْحَدِيثَةِ.", questions:[
+{lvl:"sedang", audio:"audio6.mp3", transcript:"تُعَدُّ السُّفُنُ مِنْ أَقْدَمِ وَسَائِلِ النَّقْلِ الَّتِي اسْتَخْدَمَهَا الْإِنْسَانُ لِنَقْلِ الْبَضَائِعِ وَالرُّكَّابِ عَبْرَ الْبِحَارِ وَالْمُحِيطَاتِ. وَقَدْ تَطَوَّرَتْ صِنَاعَةُ السُّفُنِ كَثِيرًا فِي الْعُصُورِ الْحَدِيثَةِ.", questions:[
   {soal:"عَمَّاذَا يَتَحَدَّثُ النَّصُّ؟", opts:["الطَّائِرَات","السُّفُن","الْقِطَارَات","السَّيَّارَات","الدَّرَّاجَات"], correct:1},
   {soal:"مَاذَا تَنْقُلُ السُّفُنُ؟", opts:["الْبَضَائِعَ فَقَط","الْبَضَائِعَ وَالرُّكَّاب","الرُّكَّابَ فَقَط","لَا شَيْء","الْبَرِيدَ فَقَط"], correct:1},
   {soal:"أَيْنَ تَعْمَلُ السُّفُنُ؟", opts:["عَلَى الْبَرِّ","عَبْرَ الْبِحَارِ وَالْمُحِيطَات","فِي الْجَوّ","تَحْتَ الْأَرْض","فِي الصَّحْرَاء"], correct:1},
   {soal:"كَيْفَ وُصِفَتِ السُّفُنُ فِي النَّصِّ؟", opts:["مِنْ أَحْدَثِ وَسَائِلِ النَّقْل","مِنْ أَقْدَمِ وَسَائِلِ النَّقْل","وَسِيلَةٌ نَادِرَة","غَيْرُ مُهِمَّة","وَسِيلَةٌ مَمْنُوعَة"], correct:1},
   {soal:"مَاذَا حَدَثَ لِصِنَاعَةِ السُّفُنِ فِي الْعُصُورِ الْحَدِيثَةِ؟", opts:["تَوَقَّفَتْ","تَطَوَّرَتْ كَثِيرًا","قَلَّتْ","لَمْ تَتَغَيَّرْ","اخْتَفَتْ"], correct:1},
 ]},
-{lvl:"sedang", transcript:"يَجْتَمِعُ سُكَّانُ الْحَيِّ فِي صَبَاحِ كُلِّ يَوْمِ أَحَدٍ لِتَنْظِيفِ الشَّوَارِعِ وَالْحَدَائِقِ الْعَامَّةِ تَطَوُّعًا، دُونَ انْتِظَارِ أَيِّ مُقَابِلٍ مَادِّيٍّ، حِفَاظًا عَلَى نَظَافَةِ الْحَيِّ وَجَمَالِهِ.", questions:[
+{lvl:"sedang", audio:"audio7.mp3", transcript:"يَجْتَمِعُ سُكَّانُ الْحَيِّ فِي صَبَاحِ كُلِّ يَوْمِ أَحَدٍ لِتَنْظِيفِ الشَّوَارِعِ وَالْحَدَائِقِ الْعَامَّةِ تَطَوُّعًا، دُونَ انْتِظَارِ أَيِّ مُقَابِلٍ مَادِّيٍّ، حِفَاظًا عَلَى نَظَافَةِ الْحَيِّ وَجَمَالِهِ.", questions:[
   {soal:"مَتَى يَجْتَمِعُ سُكَّانُ الْحَيِّ؟", opts:["مَسَاءَ كُلِّ يَوْم","صَبَاحَ كُلِّ يَوْمِ أَحَد","مَرَّةً فِي الشَّهْر","لَيْلًا","لَا يَجْتَمِعُونَ"], correct:1},
-  {soal:"مَاذَا يَفْعَلُونَ؟", opts:["يَلْعَبُونَ","يُنَظِّفُونَ الشَّوَارِعَ وَالْحَدَائِق","يَتَسَوَّقُونَ","يَتَنَاقَشُونَ فَقَط","يَبْنُونَ مَنَازِلَ"], correct:1},
+  {soal:"مَاذَا يَفْعَلُونَ؟", opts:["يَلْعَبُونَ","يُنْفِقُونَ الشَّوَارِعَ وَالْحَدَائِق (تَنْظِيفُ الشَّوَارِعِ وَالْحَدَائِق)","يَتَسَوَّقُونَ","يَتَنَاقَشُونَ فَقَط","يَبْنُونَ مَنَازِلَ"], correct:1},
   {soal:"هَلْ يَأْخُذُونَ مُقَابِلًا مَادِّيًّا؟", opts:["نَعَمْ، أَجْرًا كَبِيرًا","لَا، يَعْمَلُونَ تَطَوُّعًا","نَعَمْ، جُزْئِيًّا","غَيْر مَذْكُور","يَأْخُذُونَ هَدَايَا"], correct:1},
   {soal:"لِمَاذَا يَقُومُونَ بِذَلِكَ؟", opts:["لِلْحُصُولِ عَلَى الْمَال","حِفَاظًا عَلَى نَظَافَةِ الْحَيِّ وَجَمَالِهِ","لِأَنَّهُمْ مُجْبَرُون","لِلتَّرْفِيه فَقَط","لَا سَبَبَ"], correct:1},
   {soal:"مَا مَوْضُوعُ النَّصِّ؟", opts:["التِّجَارَة","الْعَمَلُ التَّطَوُّعِيُّ لِتَنْظِيفِ الْحَيِّ","السِّيَاحَة","التَّعْلِيم","الرِّيَاضَة"], correct:1},
 ]},
-{lvl:"sulit", transcript:"يُشَجِّعُ خُبَرَاءُ الِاقْتِصَادِ الْأُسَرَ عَلَى وَضْعِ خُطَّةٍ مَالِيَّةٍ شَهْرِيَّةٍ تَشْمِلُ تَخْصِيصَ جُزْءٍ مِنَ الدَّخْلِ لِلِادِّخَارِ قَبْلَ الْإِنْفَاقِ، بَدَلًا مِنِ ادِّخَارِ مَا يَتَبَقَّى بَعْدَ الْمَصْرُوفَاتِ، لِأَنَّ هَذَا الْأُسْلُوبَ أَكْثَرُ فَعَّالِيَّةً فِي تَحْقِيقِ الِاسْتِقْرَارِ الْمَالِيِّ.", questions:[
+{lvl:"sulit", audio:"audio8.mp3", transcript:"يُشَجِّعُ خُبَرَاءُ الِاقْتِصَادِ الْأُسَرَ عَلَى وَضْعِ خُطَّةٍ مَالِيَّةٍ شَهْرِيَّةٍ تَشْمِلُ تَخْصِيصَ جُزْءٍ مِنَ الدَّخْلِ لِلِادِّخَارِ قَبْلَ الْإِنْفَاقِ، بَدَلًا مِنِ ادِّخَارِ مَا يَتَبَقَّى بَعْدَ الْمَصْرُوفَاتِ، لِأَنَّ هَذَا الْأُسْلُوبَ أَكْثَرُ فَعَّالِيَّةً فِي تَحْقِيقِ الِاسْتِقْرَارِ الْمَالِيِّ.", questions:[
   {soal:"بِمَاذَا يُشَجِّعُ خُبَرَاءُ الِاقْتِصَادِ الْأُسَرَ؟", opts:["زِيَادَةِ الْإِنْفَاق","وَضْعِ خُطَّةٍ مَالِيَّةٍ شَهْرِيَّة","تَجَنُّبِ الِادِّخَار","الِاقْتِرَاضِ الدَّائِم","عَدَمِ التَّخْطِيط"], correct:1},
   {soal:"مَاذَا تَشْمَلُ الْخُطَّةُ الْمَالِيَّةُ الْمُقْتَرَحَةُ؟", opts:["إِنْفَاقَ كُلِّ الدَّخْل","تَخْصِيصَ جُزْءٍ لِلِادِّخَارِ قَبْلَ الْإِنْفَاق","الِاقْتِرَاضَ الشَّهْرِيّ","بَيْعَ الْمُمْتَلَكَات","تَجَاهُلَ الدَّخْل"], correct:1},
   {soal:"مَا الْأُسْلُوبُ الَّذِي يُفَضِّلُهُ النَّصُّ لِلِادِّخَارِ؟", opts:["الِادِّخَارُ بَعْدَ الْمَصْرُوفَات","الِادِّخَارُ قَبْلَ الْإِنْفَاق","عَدَمُ الِادِّخَارِ أَصْلًا","الِادِّخَارُ فِي نِهَايَةِ السَّنَة","لَا فَرْقَ بَيْنَهُمَا"], correct:1},
   {soal:"لِمَاذَا يُفَضَّلُ هَذَا الْأُسْلُوبُ حَسَبَ النَّصِّ؟", opts:["لِأَنَّهُ أَسْهَل","لِأَنَّهُ أَكْثَرُ فَعَّالِيَّةً فِي الِاسْتِقْرَارِ الْمَالِيِّ","لِأَنَّهُ إِجْبَارِيّ","لِأَنَّهُ يَزِيدُ الدَّخْل","لَا سَبَبَ مُحَدَّد"], correct:1},
   {soal:"مَا مَوْضُوعُ النَّصِّ؟", opts:["الِاسْتِثْمَارُ فِي الْأَسْهُم","التَّخْطِيطُ الْمَالِيُّ الْأُسَرِيُّ وَالِادِّخَار","أَسْعَارُ الْعُمْلَات","الضَّرَائِب","التِّجَارَةُ الدَّوْلِيَّة"], correct:1},
 ]},
-{lvl:"sulit", transcript:"أَسْهَمَتِ التِّقْنِيَّاتُ الْحَدِيثَةُ، كَأَنْظِمَةِ الرَّيِّ الذَّكِيَّةِ وَالطَّائِرَاتِ الْمُسَيَّرَةِ لِمُرَاقَبَةِ الْمَحَاصِيلِ، فِي زِيَادَةِ إِنْتَاجِيَّةِ الزِّرَاعَةِ وَتَقْلِيلِ الْحَاجَةِ إِلَى الْأَيْدِي الْعَامِلَةِ، غَيْرَ أَنَّ تَكْلِفَةَ هَذِهِ التِّقْنِيَّاتِ لَا تَزَالُ عَائِقًا أَمَامَ صِغَارِ الْمُزَارِعِينَ.", questions:[
+{lvl:"sulit", audio:"audio9.mp3", transcript:"أَسْهَمَتِ التِّقْنِيَّاتُ الْحَدِيثَةُ، كَأَنْظِمَةِ الرَّيِّ الذَّكِيَّةِ وَالطَّائِرَاتِ الْمُسَيَّرَةِ لِمُرَاقَبَةِ الْمَحَاصِيلِ، فِي زِيَادَةِ إِنْتَاجِيَّةِ الزِّرَاعَةِ وَتَقْلِيلِ الْحَاجَةِ إِلَى الْأَيْدِي الْعَامِلَةِ، غَيْرَ أَنَّ تَكْلِفَةَ هَذِهِ التِّقْنِيَّاتِ لَا تَزَالُ عَائِقًا أَمَامَ صِغَارِ الْمُزَارِعِينَ.", questions:[
   {soal:"مَا التِّقْنِيَّاتُ الْمَذْكُورَةُ فِي النَّصِّ؟", opts:["أَنْظِمَةُ الرَّيِّ الذَّكِيَّةُ وَالطَّائِرَاتُ الْمُسَيَّرَة","الْجَرَّارَاتُ فَقَط","الْأَسْمِدَةُ الْكِيمْيَائِيَّة","الْبُذُورُ الْمُعَدَّلَة","لَا تِقْنِيَّاتِ مَذْكُورَة"], correct:0},
   {soal:"مَاذَا حَقَّقَتْ هَذِهِ التِّقْنِيَّاتُ؟", opts:["تَقْلِيلُ الْإِنْتَاجِيَّة","زِيَادَةُ الْإِنْتَاجِيَّةِ وَتَقْلِيلُ الْحَاجَةِ لِلْأَيْدِي الْعَامِلَة","زِيَادَةُ عَدَدِ الْمُزَارِعِين","تَقْلِيلُ الْمَحَاصِيل","لَا تَأْثِيرَ لَهَا"], correct:1},
   {soal:"مَا الْعَائِقُ الَّذِي ذَكَرَهُ النَّصُّ؟", opts:["نَقْصُ الْأَرَاضِي","تَكْلِفَةُ هَذِهِ التِّقْنِيَّات","نَقْصُ الْمَاء","رَفْضُ الْمُزَارِعِين","نَقْصُ الْخُبَرَاء"], correct:1},
   {soal:"مَنْ يَتَأَثَّرُ أَكْثَرَ بِهَذَا الْعَائِقِ؟", opts:["كِبَارُ الْمُلَّاك","صِغَارُ الْمُزَارِعِين","الْحُكُومَة","التُّجَّار","الْمُسْتَهْلِكُون"], correct:1},
   {soal:"مَا مَوْضُوعُ النَّصِّ؟", opts:["تَارِيخُ الزِّرَاعَة","أَثَرُ التِّقْنِيَّاتِ الْحَدِيثَةِ عَلَى الزِّرَاعَة","أَنْوَاعُ الْمَحَاصِيل","مَشَاكِلُ الرَّيّ","التِّجَارَةُ الزِّرَاعِيَّة"], correct:1},
 ]},
-{lvl:"sulit", transcript:"أَتَاحَتِ الْمَكْتَبَاتُ الرَّقْمِيَّةُ لِلْقُرَّاءِ إِمْكَانِيَّةَ الِاطِّلَاعِ عَلَى آلَافِ الْكُتُبِ دُونَ الْحَاجَةِ إِلَى التَّنَقُّلِ، غَيْرَ أَنَّ بَعْضَ الْمُخْتَصِّينَ يَرَوْنَ أَنَّ الْقِرَاءَةَ الرَّقْمِيَّةَ قَدْ تُقَلِّلُ مِنْ مُسْتَوَى التَّرْكِيزِ وَالِاسْتِيعَابِ مُقَارَنَةً بِالْقِرَاءَةِ الْوَرَقِيَّةِ التَّقْلِيدِيَّةِ.", questions:[
+{lvl:"sulit", audio:"audio10.mp3", transcript:"أَتَاحَتِ الْمَكْتَبَاتُ الرَّقْمِيَّةُ لِلْقُرَّاءِ إِمْكَانِيَّةَ الِاطِّلَاعِ عَلَى آلَافِ الْكُتُبِ دُونَ الْحَاجَةِ إِلَى التَّنَقُّلِ، غَيْرَ أَنَّ بَعْضَ الْمُخْتَصِّينَ يَرَوْنَ أَنَّ الْقِرَاءَةَ الرَّقْمِيَّةَ قَدْ تُقَلِّلُ مِنْ مُسْتَوَى التَّرْكِيزِ وَالِاسْتِيعَابِ مُقَارَنَةً بِالْقِرَاءَةِ الْوَرَقِيَّةِ التَّقْلِيدِيَّةِ.", questions:[
   {soal:"مَاذَا أَتَاحَتِ الْمَكْتَبَاتُ الرَّقْمِيَّةُ؟", opts:["طِبَاعَةَ الْكُتُبِ مَجَّانًا","الِاطِّلَاعَ عَلَى آلَافِ الْكُتُبِ دُونَ التَّنَقُّل","بَيْعَ الْكُتُبِ الْوَرَقِيَّة","إِلْغَاءَ الْمَكْتَبَاتِ التَّقْلِيدِيَّة","لَا شَيْء"], correct:1},
   {soal:"مَا رَأْيُ بَعْضِ الْمُخْتَصِّينَ فِي الْقِرَاءَةِ الرَّقْمِيَّةِ؟", opts:["أَنَّهَا أَفْضَلُ دَائِمًا","قَدْ تُقَلِّلُ مِنَ التَّرْكِيزِ وَالِاسْتِيعَاب","لَا فَرْقَ لَهَا","يَجِبُ مَنْعُهَا","أَنَّهَا مَجَّانِيَّةٌ فَقَط"], correct:1},
   {soal:"بِمَاذَا قُورِنَتِ الْقِرَاءَةُ الرَّقْمِيَّةُ فِي النَّصِّ؟", opts:["بِالْكِتَابَةِ الرَّقْمِيَّة","بِالْقِرَاءَةِ الْوَرَقِيَّةِ التَّقْلِيدِيَّة","بِالْمُشَاهَدَةِ التِّلْفِزْيُونِيَّة","بِالِاسْتِمَاعِ لِلْكُتُبِ الصَّوْتِيَّة","لَا مُقَارَنَةَ فِي النَّصّ"], correct:1},
@@ -341,7 +349,7 @@ const MASMU = [
 /* ---------- BUILD PAGES ---------- */
 const PAGES = [];
 MASMU.forEach((passage, pi)=>{
-  PAGES.push({ section:'masmu', lvl:passage.lvl, transcript:passage.transcript,
+  PAGES.push({ section:'masmu', lvl:passage.lvl, audio:passage.audio, transcript:passage.transcript,
     items: passage.questions.map((q,qi)=>({...q, qid:'masmu-'+pi+'-'+qi})) });
 });
 for(let i=0;i<TARAKIB.length;i+=5){
@@ -395,14 +403,10 @@ function lockQuiz(){
   }, 2200);
 }
 
-function genPassword(email){
-  email = email.trim().toLowerCase();
-  let h = 7;
-  for(let i=0;i<email.length;i++){ h = (h*31 + email.charCodeAt(i)) % 1000000007; }
+function genPassword(){
   let letters = '';
   for(let i=0;i<5;i++){
-    letters += String.fromCharCode(65 + (h % 26));
-    h = Math.floor(h/26) + i*17 + 3;
+    letters += String.fromCharCode(65 + Math.floor(Math.random() * 26)); 
   }
   return letters;
 }
@@ -421,7 +425,7 @@ getPwBtn.addEventListener('click', ()=>{
   const email = emailInput.value.trim();
   if(!email || !email.includes('@')){ alert('Masukkan email yang valid.'); return; }
   userEmail = email;
-  generatedPw = genPassword(email);
+  generatedPw = genPassword();
   pwDisplay.textContent = generatedPw;
   pwBox.classList.add('show');
   pwLoginArea.style.display = 'block';
@@ -455,12 +459,14 @@ function renderPage(){
   tag.className = 'section-tag';
   tag.textContent = SECTION_LABEL[page.section];
   main.appendChild(tag);
-  if(page.transcript){
+  
+  if(page.audio){
     const p = document.createElement('div');
     p.className = 'passage';
-    p.innerHTML = `<div class="tlabel">🔊 Teks Audio (transkrip sementara)</div><div class="transcript">${page.transcript}</div>`;
+    p.innerHTML = `<div class="tlabel">🔊 Audio Istima'</div><audio controls src="${page.audio}" style="width:100%;"></audio><div class="transcript" style="margin-top:10px;">${page.transcript}</div>`;
     main.appendChild(p);
   }
+
   page.items.forEach((q)=>{
     const div = document.createElement('div');
     div.className = 'q';
@@ -519,15 +525,24 @@ function pageAnsweredCount(){
 function updateNav(){
   const page = PAGES[currentPage];
   const allAnswered = pageAnsweredCount() === page.items.length;
+  const prevBtn = document.getElementById('prev-btn');
   const revealBtn = document.getElementById('reveal-btn');
   const nextBtn = document.getElementById('next-btn');
+  
+  prevBtn.disabled = (currentPage === 0);
   revealBtn.disabled = !allAnswered || revealedPages.has(currentPage);
   revealBtn.textContent = revealedPages.has(currentPage) ? 'Jawaban Ditampilkan' : 'Lihat Jawaban';
-  // MODE CEK SEMENTARA: syarat "harus jawab semua dulu" untuk pindah halaman dimatikan.
-  // Untuk mengembalikan aturan asli, ganti baris di bawah ini menjadi: nextBtn.disabled = !allAnswered;
   nextBtn.disabled = false;
   nextBtn.textContent = (currentPage === PAGES.length-1) ? 'Selesai & Lihat Nilai' : 'Halaman Selanjutnya';
 }
+
+document.getElementById('prev-btn').addEventListener('click', ()=>{
+  if(locked) return;
+  if(currentPage > 0){
+    currentPage--;
+    renderPage();
+  }
+});
 
 document.getElementById('reveal-btn').addEventListener('click', ()=>{
   if(locked) return;
@@ -549,6 +564,9 @@ function showResult(){
   if(timerInterval) clearInterval(timerInterval);
   document.getElementById('quiz-screen').classList.remove('active');
   document.getElementById('result-screen').classList.add('active');
+  
+  document.getElementById('result-email-label').textContent = userEmail;
+
   let totalCorrect = 0;
   const bySection = { masmu:{c:0,t:0}, tarakib:{c:0,t:0}, maqru:{c:0,t:0} };
   PAGES.forEach(page=>{
@@ -566,6 +584,27 @@ function showResult(){
     table.appendChild(row);
   });
 }
+
+// FUNGSI UNDUH PDF
+document.getElementById('download-pdf-btn').addEventListener('click', ()=>{
+  const element = document.getElementById('result-content');
+  const opt = {
+    margin:       [0.5, 0.5, 0.5, 0.5],
+    filename:     'Hasil_TryOut3_' + userEmail + '.pdf',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2 },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(element).save();
+});
+
+// FUNGSI KIRIM EMAIL
+document.getElementById('send-email-btn').addEventListener('click', ()=>{
+  const score = document.getElementById('score-big').textContent;
+  const subject = encodeURIComponent("Hasil Try Out 3 - Tes Hamzah");
+  const body = encodeURIComponent(`Halo,\n\nBerikut adalah hasil Try Out 3 Anda:\n\nEmail Peserta: ${userEmail}\nSkor Total: ${score}\n\nTerima kasih telah mengikuti Try Out.`);
+  window.location.href = `mailto:${userEmail}?subject=${subject}&body=${body}`;
+});
 
 document.getElementById('restart-btn').addEventListener('click', ()=>{
   currentPage = 0;
